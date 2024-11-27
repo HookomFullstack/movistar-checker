@@ -19,7 +19,7 @@ const runScrapper = async({arrPhones, socket, username, instanceIndex, sockOff})
 
     for (const [i, phone] of arrPhones.entries()) {
         try {
-            if (sockOff.connected == false) {
+            if (sockOff?.connected == false) {
                 await browser.close()
                 break
             }
