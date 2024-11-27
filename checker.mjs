@@ -49,7 +49,8 @@ const runScrapper = async({arrPhones, socket, username, instanceIndex, sockOff})
                         '--disable-setuid-sandbox',
                         '--disable-dev-shm-usage',
                         '--disable-accelerated-2d-canvas',
-                        '--disable-gpu'
+                        '--disable-gpu',
+                        '--no-sandbox'
                     ]
                 });
 
@@ -86,10 +87,10 @@ const runScrapper = async({arrPhones, socket, username, instanceIndex, sockOff})
 
 
             do {
-                if (window.grecaptcha.hasOwnProperty('execute') == false) {
+                if (window?.grecaptcha?.hasOwnProperty('execute') == false) {
                     await new Promise(res => setTimeout(() => {res()}, 1000))
                 }
-            } while (window.grecaptcha.hasOwnProperty('execute') == false)
+            } while (window?.grecaptcha?.hasOwnProperty('execute') == false)
 
             const generateToken = await fetch('https://secure.payco.co/recaudo/api/recaudo/get/token', {
                 method: 'POST', 

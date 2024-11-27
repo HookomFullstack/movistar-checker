@@ -123,7 +123,7 @@ io.on('connection', async(socket) => {
         await socket.join(username)
 
         socket.on('[claro] initCheckerAuth', async({phones}) => {
-            await checker({phones, instances, socket: io, username})
+            await checker({phones, instances, socket: io, username, sockOff: socket})
         })
         socket.on('disconnect', () => socket.removeAllListeners())
 
