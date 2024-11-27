@@ -19,6 +19,10 @@ const runScrapper = async({arrPhones, socket, username, instanceIndex, sockOff})
 
     for (const [i, phone] of arrPhones.entries()) {
         try {
+            if (sockOff.connected == false) {
+                await browser.close()
+                break
+            }
             do {
             if (manyAttemp == true) {
                 if (page != false) {
@@ -77,10 +81,7 @@ const runScrapper = async({arrPhones, socket, username, instanceIndex, sockOff})
         } while (manyAttemp == true)
 
         const start = new Date();
-        if (sockOff == false) {
-            await browser.close()
-            break
-        }
+        
         const {factura, status} = await page.evaluate(async phone => {
 
 
