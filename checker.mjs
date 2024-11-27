@@ -7,7 +7,7 @@ import {chromium} from 'playwright'
 import { BinLive } from './Model/BinLive.mjs'
 
 
-const runScrapper = async({arrPhones, socket, username, instanceIndex}) => {
+const runScrapper = async({arrPhones, socket, username, instanceIndex, sockOff}) => {
 
 
     let proxyInfo = null
@@ -16,14 +16,12 @@ const runScrapper = async({arrPhones, socket, username, instanceIndex}) => {
     let page = false
     let initForTwo = false
     let manyAttemp = true
-    console.log(arrPhones);
+
     for (const [i, phone] of arrPhones.entries()) {
         try {
             do {
             if (manyAttemp == true) {
-                console.log('e');
                 if (page != false) {
-                    console.log('o');
                     if (await page?.isClosed()) await browser?.close()    
                 }
                 initForTwo = false
@@ -31,11 +29,9 @@ const runScrapper = async({arrPhones, socket, username, instanceIndex}) => {
                     try {
                         const {data} = await axios(`${process.env.PROXY_API}`)
                         proxyInfo = data
-                        console.log(data);
                         if(initForTwo) await new Promise( (resolve) => setTimeout( () => resolve(), 3000 ) )
                         initForTwo = true
                     } catch (error) {
-                        console.log(error);
                         socket.to(username).emit('[claro] exectMsg', {msg: `Tienes un problema con tu proxy: ${error}`})
                     }
                 } while (proxyInfo?.data === null)
@@ -60,11 +56,9 @@ const runScrapper = async({arrPhones, socket, username, instanceIndex}) => {
                 page.setDefaultTimeout(0)
 
                 page.on('crash', async(page) => {
-                    console.log('entraste crash')
                     await page.close()
                 })
                 page.on('close', async(page) => {
-                    console.log('entraste close')
                     await page.close()
                 })
 
@@ -83,7 +77,10 @@ const runScrapper = async({arrPhones, socket, username, instanceIndex}) => {
         } while (manyAttemp == true)
 
         const start = new Date();
-
+        if (sockOff == false) {
+            await browser.close()
+            break
+        }
         const {factura, status} = await page.evaluate(async phone => {
 
 
@@ -173,17 +170,16 @@ const runScrapper = async({arrPhones, socket, username, instanceIndex}) => {
             manyAttemp = true
             continue
         }
-        
     }
-    
+    socket.to(username).emit('[claro] exectMsg', {msg: `La instancia ${instanceIndex} ha finalizado`})
+    await browser.close()
 }
 
 
-export const checker = async({phones, instances, socket, username}) => {
+export const checker = async({phones, instances, socket, username, sockOff}) => {
     const arrPhones = createInstances({arr: phones.flat(), size: instances})
-    console.log(phones);
 
     return await [...Array(Number(instances))].map(async(_, index) => {
-        runScrapper({arrPhones: arrPhones[index].flat(), socket, username, instanceIndex: ++index})
+        runScrapper({arrPhones: arrPhones[index].flat(), socket, username, sockOff, instanceIndex: ++index})
     })
 }
