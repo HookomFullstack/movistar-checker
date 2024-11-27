@@ -86,6 +86,14 @@ const runScrapper = async({arrPhones, socket, username, instanceIndex}) => {
         const start = new Date();
 
         const {factura, status} = await page.evaluate(async phone => {
+
+
+            do {
+                if (window.grecaptcha.hasOwnProperty('execute') == false) {
+                    await new Promise(res => setTimeout(() => {res()}, 1000))
+                }
+            } while (window.grecaptcha.hasOwnProperty('execute') == false)
+
             const generateToken = await fetch('https://secure.payco.co/recaudo/api/recaudo/get/token', {
                 method: 'POST', 
                 body: JSON.stringify({dominio: "https://movistar.epayco.me"}),
