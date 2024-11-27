@@ -43,8 +43,7 @@ const runScrapper = async({arrPhones, socket, username, instanceIndex}) => {
                 const proxy = await proxyChain.anonymizeProxy({url: `http://${proxyInfo}`, port: 3000})
                 
                 browser = await chromium.launch({
-                    headless: false,
-                    devtools: true,
+                    headless: true,
                     args: [ 
                         `--proxy-server=${proxy}`,
                         '--disable-setuid-sandbox',
@@ -154,7 +153,7 @@ const runScrapper = async({arrPhones, socket, username, instanceIndex}) => {
         const time = end.getTime()-start.getTime()+'ms'
         await context.clearCookies()
         if (factura) {
-            socket.to(username).emit(`[claro] live`, {phone, factura, msg: `Número ${phone} tiene una factura con deuda de ${price} - ${time}`})
+            socket.to(username).emit(`[claro] live`, {phone, factura, msg: `Número ${phone} tiene una factura con deuda de ${factura[0].total} - ${time}`})
             await BinLive.findOneAndUpdate({ binID: phone.slice(0,5) }, 
             { $push: { bin: {phone, factura} } },
             ).then(async(doc) => {
