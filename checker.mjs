@@ -16,7 +16,6 @@ const runScrapper = async({arrPhones, socket, username, instanceIndex, sockOff})
     let page = false
     let initForTwo = false
     let manyAttemp = true
-
     for (const [i, phone] of arrPhones.entries()) {
         try {
             if (sockOff?.connected == false) {
@@ -43,7 +42,7 @@ const runScrapper = async({arrPhones, socket, username, instanceIndex, sockOff})
                 const proxy = await proxyChain.anonymizeProxy({url: `http://${proxyInfo}`, port: 3000})
                 
                 browser = await chromium.launch({
-                    headless: true,
+                    headless: false,
                     args: [ 
                         `--proxy-server=${proxy}`,
                         '--disable-setuid-sandbox',
@@ -87,60 +86,68 @@ const runScrapper = async({arrPhones, socket, username, instanceIndex, sockOff})
 
 
             do {
-                if (window?.grecaptcha?.hasOwnProperty('execute') == false) {
-                    await new Promise(res => setTimeout(() => {res()}, 1000))
+                if (window?.grecaptcha?.hasOwnProperty("execute") == false) {
+                  await new Promise((res) => setTimeout(res, 1000));
                 }
-            } while (window?.grecaptcha?.hasOwnProperty('execute') == false)
-
-            const generateToken = await fetch('https://secure.payco.co/recaudo/api/recaudo/get/token', {
-                method: 'POST', 
-                body: JSON.stringify({dominio: "https://movistar.epayco.me"}),
+              } while (window?.grecaptcha?.hasOwnProperty("execute") == false);
+          
+              // Obtener el token de autorización desde el backend
+              const generateTokenResponse = await fetch("https://secure.payco.co/recaudo/api/recaudo/get/token", {
+                method: "POST",
+                body: JSON.stringify({ dominio: "https://movistar.epayco.me" }),
                 headers: {
-                    'Content-Type': 'application/json; charset=utf-8'
-                }
-            })
-            const tokenJson = await generateToken.json()
-            const token = tokenJson?.data?.token
-            
+                  "Content-Type": "application/json; charset=utf-8",
+                },
+              });
+          
+            const tokenJson = await generateTokenResponse.json();
+            const token = tokenJson?.data?.token;
+            if (!token) {
+                throw new Error("No se pudo obtener el token de autorización.");
+            }
             const recaptchat = await window.grecaptcha.execute('6LfArI4UAAAAAOvDvRVUtnowA9MVZ__b2lqAVhSo')
             
-            
-            const info = await fetch("https://secure.payco.co/recaudo/api/recaudo/proyecto/api/consulta/facturas", {
-                headers: {
+            // Configuración de la solicitud para consultar facturas
+            const urlFactura = "https://secure.payco.co/recaudo/api/recaudo/proyecto/api/consulta/facturas";
+            const headers = {
                 "accept": "application/json",
                 "accept-language": "es-ES,es;q=0.9",
                 "authorization": `Bearer ${token}`,
                 "content-type": "application/json",
-                "x-api-key": `${recaptchat}`,
-                },
-                body: JSON.stringify({
-                consulta: [
-                    {
-                    parametro: 'paymentRef',
-                    value: `${phone}`
-                    },
-                    { parametro: 'invoiceType', value: 'movil' },
-                    { parametro: 'isRefNumber', value: 'true' },
-                    { parametro: 'comerce', value: 'movistar' },
-                    { parametro: 'referen', value: '' },
-                    { parametro: 'novum', value: '' }
-                ],
-                tipoConsulta: 'online',
-                dominio: 'https://movistar.epayco.me/recaudo/recaudoenlinea'
-                }),
-                method: "POST"
+                "x-api-key": recaptchat,
+                "gxqogix": "KIVfwEN37te0dA6GScZcFvbkoK7op2", // Posiblemente un identificador único
+            };
+
+            const body = JSON.stringify({
+            consulta: [
+                { parametro: "paymentRef", value: phone },
+                { parametro: "invoiceType", value: 'movil' },
+                { parametro: "isRefNumber", value: "true" },
+                { parametro: "comerce", value: 'movistar' },
+                { parametro: "referen", value: "" },
+                { parametro: "novum", value: "" },
+            ],
+            tipoConsulta: "online",
+            dominio: "https://movistar.epayco.me/recaudo/recaudoenlinea",
             });
-            
-            const data = await info.json()
+
+            // Realizar la solicitud
+            const facturaResponse = await fetch(urlFactura, {
+                method: "POST",
+                headers: headers,
+                body: body,
+            });
+
+            const data = await facturaResponse.json();
 
             if (data.success == true) {
                 const factura = data.data.facturas.map(({id, total, extra14, facturaId}) => {
                     return {id, total, extra14, facturaId}
                   })
-                return {factura, status: info.status}
+                return {factura, status: facturaResponse.status}
             }
             
-            return {factura: null, status: info.status}
+            return {factura: null, status: facturaResponse .status}
         }, phone)
 
         if (status != 200) {
@@ -170,6 +177,10 @@ const runScrapper = async({arrPhones, socket, username, instanceIndex, sockOff})
             socket.to(username).emit('[claro] exectMsg', {msg: `Ha ocurrido un error con la instancia ${instanceIndex} esta sera reiniciada....`})
             arrPhones.splice(i+1, 0, phone)
             manyAttemp = true
+            if (sockOff?.connected == false) {
+                await browser.close()
+                break
+            }
             continue
         }
     }
