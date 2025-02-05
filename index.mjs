@@ -21,7 +21,7 @@ app.use(cors({origin: '*'}))
 app.use(express.json({limit: '1000mb'}))
 app.use(morgan('common'))
 
-const PORT = 3001
+const PORT = 3000
 
 const httpServer = createServer(app)
 
@@ -41,6 +41,7 @@ app.post('/user/createUser', async(req, res) => {
     const formatMoment = new Date(Date.now() + ( 3600 * 1000 ))
 
     const subs = moment(formatMoment, 'YYYY-MM-DD hh:mm:ss').add({day: subscription}).toISOString()
+    console.log(subs);
     await User.create({
         username: token,
         instances,
@@ -106,12 +107,16 @@ app.get('*', async(req ,res) => {
 io.on('connection', async(socket) => {    
     try {
         const token = socket.handshake?.query['X-TOKEN-KEY']
+
         const user = await User.findOne({username: token.trim()})
+
         if(user == null) {
             socket.emit('[claro] exectMsg', {msg: '¡Vaya! Parece tienes un usuario invalido, por favor contacta con el administrador.', error: true} )
             return socket.disconnect(true)
         }
+
         const {username, screen, limitScreen, instances, subscription} = user
+
         if(screen >= limitScreen) {
             socket.emit('[claro] exectMsg', {msg: 'Has superado el limite de pantallas, si deseas agregar más por favor contacta con el administrador', error: true} )
             return socket.disconnect(true)

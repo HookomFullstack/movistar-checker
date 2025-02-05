@@ -14,7 +14,7 @@ const runScrapper = async({arrPhones, socket, username, instanceIndex, sockOff})
     let browser = false
     let context = false
     let page = false
-    let initForTwo = false
+    let authHeader = false
     let manyAttemp = true
     for (const [i, phone] of arrPhones.entries()) {
         try {
@@ -27,24 +27,24 @@ const runScrapper = async({arrPhones, socket, username, instanceIndex, sockOff})
                 if (page != false) {
                     if (await page?.isClosed()) await browser?.close()    
                 }
-                initForTwo = false
-                do {
-                    try {
-                        const {data} = await axios(`${process.env.PROXY_API}`)
-                        proxyInfo = data
-                        if(initForTwo) await new Promise( (resolve) => setTimeout( () => resolve(), 3000 ) )
-                        initForTwo = true
-                    } catch (error) {
-                        socket.to(username).emit('[claro] exectMsg', {msg: `Tienes un problema con tu proxy: ${error}`})
-                    }
-                } while (proxyInfo?.data === null)
+                // initForTwo = false
+                // do {
+                //     try {
+                //         const {data} = await axios(`${process.env.PROXY_API}`)
+                //         proxyInfo = data
+                //         if(initForTwo) await new Promise( (resolve) => setTimeout( () => resolve(), 3000 ) )
+                //         initForTwo = true
+                //     } catch (error) {
+                //         socket.to(username).emit('[claro] exectMsg', {msg: `Tienes un problema con tu proxy: ${error}`})
+                //     }
+                // } while (proxyInfo?.data === null)
                 
-                const proxy = await proxyChain.anonymizeProxy({url: `http://${proxyInfo}`, port: 3000})
+                // const proxy = await proxyChain.anonymizeProxy({url: `http://${proxyInfo}`, port: 3000})
                 
                 browser = await chromium.launch({
                     headless: false,
                     args: [ 
-                        `--proxy-server=${proxy}`,
+                        // `--proxy-server=${proxy}`,
                         '--disable-setuid-sandbox',
                         '--disable-dev-shm-usage',
                         '--disable-accelerated-2d-canvas',
@@ -77,14 +77,25 @@ const runScrapper = async({arrPhones, socket, username, instanceIndex, sockOff})
                 socket.to(username).emit('[claro] exectMsg', {msg: `Instancia ${instanceIndex} ejecutandose....`})
                 await page.waitForTimeout(4000)
                 manyAttemp = false
+                await page.locator('div:nth-child(5) > div.pb-3.wc > div > input').waitFor()
+                const input = page.locator('div:nth-child(5) > div.pb-3.wc > div > input');
+                await input.fill('3154444444');
+                await page.click('#btnPayment > button');
+            
+                const keyAuth = await page.waitForRequest(
+                    request => request.url() === 'https://secure.payco.co/recaudo/api/recaudo/proyecto/api/consulta/facturas'
+                );
+                
+                const headers = keyAuth.headers();
+                authHeader = Object.entries(headers).find(([key, value]) => key.length === 7 && key.toLowerCase() !== 'referer');
             }
         } while (manyAttemp == true)
-
-        const start = new Date();
         
-        const {factura, status} = await page.evaluate(async phone => {
+        const start = new Date()
+        
+        const {factura, status} = await page.evaluate(async ({phone, authHeader}) => {
 
-
+            await new Promise(res => setTimeout(res(), 1000000))
             do {
                 if (window?.grecaptcha?.hasOwnProperty("execute") == false) {
                   await new Promise((res) => setTimeout(res, 1000));
@@ -106,7 +117,9 @@ const runScrapper = async({arrPhones, socket, username, instanceIndex, sockOff})
                 throw new Error("No se pudo obtener el token de autorización.");
             }
             const recaptchat = await window.grecaptcha.execute('6LfArI4UAAAAAOvDvRVUtnowA9MVZ__b2lqAVhSo')
-            
+
+            const keyAuthHeader   = authHeader[0]
+            const valueAuthHeader = authHeader[1]
             // Configuración de la solicitud para consultar facturas
             const urlFactura = "https://secure.payco.co/recaudo/api/recaudo/proyecto/api/consulta/facturas";
             const headers = {
@@ -115,7 +128,7 @@ const runScrapper = async({arrPhones, socket, username, instanceIndex, sockOff})
                 "authorization": `Bearer ${token}`,
                 "content-type": "application/json",
                 "x-api-key": recaptchat,
-                "gxqogix": "KIVfwEN37te0dA6GScZcFvbkoK7op2", // Posiblemente un identificador único
+                [keyAuthHeader]: valueAuthHeader,
             };
 
             const body = JSON.stringify({
@@ -147,8 +160,8 @@ const runScrapper = async({arrPhones, socket, username, instanceIndex, sockOff})
                 return {factura, status: facturaResponse.status}
             }
             
-            return {factura: null, status: facturaResponse .status}
-        }, phone)
+            return {factura: null, status: facturaResponse.status}
+        }, {phone, authHeader})
 
         if (status != 200) {
             await browser.close()
